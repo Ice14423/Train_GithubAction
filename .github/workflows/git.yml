@@ -10,5 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: checkout repository
+        uses: actions/checkout@v4
+
       - name: say Hello
-        run: echo "Hello, Github Actions!"
+        run: echo "Hello, Github Actions! from ${{ github.repository }}"
