@@ -1,4 +1,3 @@
-
 const express = require("express");
 function makeApp(database){
     const app = express();
