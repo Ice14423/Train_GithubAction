@@ -9,7 +9,7 @@ const app = makeApp(mockDatabase);
 test("should save the username and password to the database", async () => {
     const bodyData = { username: "username1", password: "password1"}
     //ให้ mockCreateUser ส่งข้อมูล id usrname และ password กลับไปเมื่อถูกเรียกใช้งาน
-    mockCreateUser.mockResolvedValue({ id: 1, ...bodyData });
+    mockCreateUser.mockResolvedValue({ id: 2, ...bodyData });
     const response = await request(app).post("/").send(bodyData);
     expect(mockCreateUser.mock.calls[0][0]).toBe(bodyData.username);
     expect(mockCreateUser.mock.calls[0][1]).toBe(bodyData.password);
