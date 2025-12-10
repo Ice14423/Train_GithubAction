@@ -10,5 +10,5 @@ def test_multipy():
     assert multiply(9, 5) == 45
 
 def test_divide():
-    assert divide(7, 2) == 3.5
+    assert divide(7, 2) == 3.9
 
