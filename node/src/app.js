@@ -32,4 +32,4 @@ function divide(a, b){
 }
 
 
-module.exports = makeApp, add, subtract, multipy, divide
+module.exports = { makeApp, add, subtract, multiply, divide };
