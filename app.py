@@ -1,2 +1,2 @@
-say = "Hello world !"
-print(say)
+def add(a, b):
+    return a + b
