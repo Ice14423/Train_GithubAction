@@ -4,8 +4,7 @@ import App from './App';
 
 test('renders calculator app', () => {
   render(<App />);
-  // เปลี่ยนจากหาคำว่า /learn react/ เป็น /React Calculator/ แทน
-  // เพราะใน Calculator.js เรามี <h2>React Calculator</h2> อยู่
-  const linkElement = screen.getByText(/React Calculator/i);
+  // เปลี่ยนคำค้นหาให้ตรงกับที่เราเขียนใน Calculator.js ("REACT CALC")
+  const linkElement = screen.getByText(/REACT CALC/i);
   expect(linkElement).toBeInTheDocument();
 });
