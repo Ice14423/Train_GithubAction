@@ -47,7 +47,7 @@ pipeline {
             steps {
                 echo '🚀 Deploying to Render...'
                 // ยิง Webhook บอก Render ให้ Deploy
-                sh "curl -X POST ${RENDER_HOOK_URL}"
+                sh 'curl -X POST $RENDER_HOOK_URL'
             }
         }
     }

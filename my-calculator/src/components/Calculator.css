@@ -2,7 +2,7 @@
 
 /* กล่องหลัก */
 .calculator-card {
-  background: linear-gradient(145deg, #1e2024, #23272b);
+  background: linear-gradient(145deg, #2356bd, #76a8db);
   padding: 30px;
   border-radius: 20px;
   width: 320px;
@@ -16,7 +16,7 @@
 .calculator-title {
   text-align: center;
   margin-bottom: 20px;
-  color: #61dafb; /* สีฟ้า React */
+  color: #e4fb61; /* สีฟ้า React */
   font-weight: 600;
   letter-spacing: 1px;
 }
