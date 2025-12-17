@@ -1,5 +1,5 @@
 // src/utils/calculator.test.js
-import { add, subtract, multiply, divide } from '../utils/Calculator';
+import { add, subtract, multiply, divide } from './calculator';
 
 // เทียบเท่า def test_add():
 test('adds 1 + 2 to equal 3', () => {

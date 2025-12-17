@@ -1,6 +1,6 @@
 // src/components/Calculator.js
 import React, { useState } from 'react';
-import { add, subtract, multiply, divide } from '../utils/Calculator';
+import { add, subtract, multiply, divide } from '../utils/calculator';
 
 const Calculator = () => {
   const [num1, setNum1] = useState('');
