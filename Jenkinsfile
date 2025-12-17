@@ -1,27 +1,71 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:20' 
+            args '-u root:root' // แก้ปัญหา Permission ใน Docker
+        }
+    }
+
+    environment {
+        // ดึง URL จาก Jenkins Credentials
+        RENDER_HOOK_URL = credentials('render-deploy-hook')
+        CI = 'true' 
+    }
 
     stages {
-        
-        stage('Install Dependencies') {
+        stage('Checkout') {
             steps {
-                echo 'Installing requirements...'
-              
-                sh 'python3 -m venv venv'
-                // Activate venv และลงของ
-                sh '. venv/bin/activate && pip install -r requirements.txt' 
+                checkout scm
             }
         }
 
-        stage('Test with Pytest') {
-            environment {
-                PYTHONPATH = "${env.WORKSPACE}/python/src"
+        stage('Install Dependencies') {
+            steps {
+                dir('my-calculator') {
+                    echo '📦 Installing dependencies...'
+                    // npm ci เร็วกว่า npm install และเหมาะสำหรับ CI server
+                    sh 'npm ci' 
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('my-calculator') {
+                    echo '🧪 Running Tests...'
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('my-calculator') {
+                    echo '🏗️ Building Project...'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Deploy to Render') {
+            // เงื่อนไข: ทำเฉพาะเมื่ออยู่บน Branch 'set/dev' เท่านั้น
+            when {
+                branch 'set/dev'
             }
             steps {
-                echo 'Running Pytest...'
-                // ใช้ python ใน venv รัน test
-                sh '. venv/bin/activate && python3 -m pytest python/test'
+                echo '🚀 Deploying to Render (set/dev)...'
+                // ยิง Webhook บอก Render
+                sh "curl -X POST ${RENDER_HOOK_URL}"
             }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline Succeeded!'
+        }
+        failure {
+            echo '❌ Pipeline Failed!'
         }
     }
 }
