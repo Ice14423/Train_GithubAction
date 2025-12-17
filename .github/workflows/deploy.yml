@@ -1,0 +1,49 @@
+name: React CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# อนุญาตให้ workflow นี้เขียนไฟล์กลับเข้า repo ได้ (จำเป็นสำหรับการ deploy ไป branch gh-pages)
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. เปลี่ยนจาก Python เป็น Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # ใช้ Node รุ่นล่าสุดที่เสถียร
+          cache: 'npm'
+
+      # 2. ลง Library ต่างๆ (npm ci จะเร็วกว่า npm install ใน CI)
+      - name: Install dependencies
+        run: npm ci
+
+      # 3. รัน Test
+      # สำคัญ: ต้องใส่ CI: true เพื่อให้มันรันจบแล้วปิดตัวเอง (ไม่งั้นมันจะค้างรอ input)
+      - name: Run tests
+        run: npm test
+        env:
+          CI: true
+
+      # 4. สร้างไฟล์สำหรับ Production (สร้างโฟลเดอร์ build)
+      - name: Build project
+        run: npm run build
+
+      # 5. Deploy ไป GitHub Pages
+      # ขั้นตอนนี้จะทำงานเฉพาะตอน push เข้า main เท่านั้น (ไม่ทำตอน Pull Request)
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: build # โฟลเดอร์ที่ได้จากการ run build
