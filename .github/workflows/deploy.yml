@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  Pages : write
+  idtokens: write
 
 jobs:
   build-and-deploy:
