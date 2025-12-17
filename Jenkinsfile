@@ -1,7 +1,5 @@
 pipeline {
-    agent any  // เปลี่ยนจาก docker {...} เป็น any
-
-    
+    agent any
 
     environment {
         RENDER_HOOK_URL = credentials('render-deploy-hook')
@@ -9,6 +7,13 @@ pipeline {
     }
 
     stages {
+        stage('Check Environment') {
+             steps {
+                 sh 'node -v'
+                 sh 'npm -v'
+             }
+        }
+
         stage('Install Dependencies') {
             steps {
                 dir('my-calculator') {
@@ -37,11 +42,11 @@ pipeline {
         }
 
         stage('Deploy to Render') {
-            when {
-                branch 'set/dev'
-            }
+            // ❌ ลบส่วน when { branch 'set/dev' } ออกไปเลยครับ
+            // เพราะเราตั้งค่าที่ตัว Job ให้ทำแค่ branch นี้อยู่แล้ว
             steps {
-                echo '🚀 Deploying to Render (set/dev)...'
+                echo '🚀 Deploying to Render...'
+                // ยิง Webhook บอก Render ให้ Deploy
                 sh "curl -X POST ${RENDER_HOOK_URL}"
             }
         }
