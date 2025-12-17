@@ -1,10 +1,7 @@
 pipeline {
     agent any  // เปลี่ยนจาก docker {...} เป็น any
 
-    // บอก Jenkins ว่างานนี้ขอใช้เครื่องมือชื่อ node-20 (ที่เราตั้งไว้ในขั้นตอนที่ 2)
-    tools {
-        nodejs 'node-20'
-    }
+    
 
     environment {
         RENDER_HOOK_URL = credentials('render-deploy-hook')
