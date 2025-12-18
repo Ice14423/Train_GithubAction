@@ -42,11 +42,10 @@ pipeline {
         }
 
         stage('Deploy to Render') {
-            // ❌ ลบส่วน when { branch 'set/dev' } ออกไปเลยครับ
-            // เพราะเราตั้งค่าที่ตัว Job ให้ทำแค่ branch นี้อยู่แล้ว
+            
             steps {
                 echo '🚀 Deploying to Render...'
-                // ยิง Webhook บอก Render ให้ Deploy
+               
                 sh 'curl -X POST $RENDER_HOOK_URL'
             }
         }

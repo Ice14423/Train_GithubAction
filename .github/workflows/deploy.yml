@@ -15,7 +15,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    # [สำคัญ] บรรทัดนี้สั่งให้ทุก Step ทำงานในโฟลเดอร์ my-calculator
+   
     defaults:
       run:
         working-directory: ./my-calculator
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          # [สำคัญ] บอก path ของไฟล์ lock ให้ถูกต้อง
+        
           cache-dependency-path: my-calculator/package-lock.json
 
       - name: Install dependencies
@@ -47,5 +47,5 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          # [สำคัญ] บอกให้ Deploy จากโฟลเดอร์ build ที่อยู่ใน my-calculator
+          
           folder: my-calculator/build
