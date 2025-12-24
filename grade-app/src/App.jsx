@@ -10,6 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || "https://xotesrj772.execute-api.
 function App() {
   const [score, setScore] = useState('');
   const [grade, setGrade] = useState('');
+  const [subject, setSubject] = useState('');
   const [studentId, setStudentId] = useState('');
   const [isSaving, setIsSaving] = useState(false); // เพิ่มสถานะการโหลด
 
@@ -28,7 +29,7 @@ function App() {
 
     const payload = {
       StudentID: studentId,
-      Subject: 'Math',
+      Subject: subject,
       Score: Number(score), // แปลงเป็นตัวเลขก่อนส่ง
       Grade: grade
     };
@@ -69,6 +70,17 @@ function App() {
       
 
         <div className="input-group">
+          <select 
+            value={subject} 
+            onChange={(e) => setSubject(e.target.value)}
+            className="subject-select"
+          >
+            <option value="คณิตศาสตร์">คณิตศาสตร์</option>
+            <option value="วิทยาศาสตร์">วิทยาศาสตร์</option>
+            <option value="ภาษาอังกฤษ">ภาษาอังกฤษ</option>
+            <option value="ภาษาไทย">ภาษาไทย</option>
+            <option value="สังคมศึกษา">สังคมศึกษา</option>
+          </select>
           <input 
             placeholder="ใส่รหัสนักศึกษา" 
             value={studentId} 

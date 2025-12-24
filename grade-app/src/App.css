@@ -14,10 +14,10 @@
 }
 
 .card {
-  background-color: #2a2a2a; /* พื้นหลังสีเข้ม */
+  background-color: #3734c7; /* พื้นหลังสีเข้ม */
   padding: 2rem;
   border-radius: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 8px rgba(12, 33, 174, 0.2);
   width: 400px;
   color: white;
 }
@@ -29,10 +29,10 @@
   margin-top: 20px;
 }
 
-input {
+input, select {
   padding: 10px;
   border-radius: 5px;
-  border: 1px solid #555;
+  border: 1px solid white;
   background-color: #1a1a1a;
   color: white;
   font-size: 16px;
@@ -42,7 +42,7 @@ button {
   padding: 10px 20px;
   border-radius: 5px;
   border: none;
-  background-color: #646cff;
+  background-color: #20af52;
   color: white;
   font-size: 16px;
   cursor: pointer;
@@ -50,7 +50,7 @@ button {
 }
 
 button:hover {
-  background-color: #535bf2;
+  background-color: #20af15;
 }
 
 .result-section {
