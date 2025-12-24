@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         // ใช้ Node และ Terraform ที่ตั้งค่าไว้
-        nodejs 'NodeJS 20' 
+        
         terraform 'Terraform'
     }
 
