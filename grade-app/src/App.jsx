@@ -1,47 +1,86 @@
-// src/App.jsx
 import { useState } from 'react';
-import { calculateGrade } from './utils'; // เราต้องสร้างไฟล์นี้ในข้อ 2
+import { calculateGrade } from './utils';
 import './App.css';
+
+// ⚠️ สำคัญ: ตรงนี้คือที่อยู่ของ Backend API ของคุณ
+// วิธีที่ 1: ใส่ URL ที่ได้จาก Jenkins/Terraform ตรงนี้เลย (วิธีทดสอบง่ายสุด)
+// ตัวอย่าง: const API_URL = "https://abc12345.execute-api.ap-southeast-1.amazonaws.com";
+const API_URL = import.meta.env.VITE_API_URL || "https://xotesrj772.execute-api.ap-southeast-2.amazonaws.com";
 
 function App() {
   const [score, setScore] = useState('');
   const [grade, setGrade] = useState('');
   const [studentId, setStudentId] = useState('');
+  const [isSaving, setIsSaving] = useState(false); // เพิ่มสถานะการโหลด
 
   const handleCalculate = () => {
     const result = calculateGrade(score);
     setGrade(result);
   };
 
-  const handleSave = () => {
-    // จำลองการส่งข้อมูล (ในอนาคตจะยิงไป AWS API Gateway ตรงนี้)
+  const handleSave = async () => {
+    if (!studentId || !score) {
+      alert("Please enter Student ID and Score");
+      return;
+    }
+
+    setIsSaving(true); // เริ่มหมุนติ้วๆ
+
     const payload = {
       StudentID: studentId,
       Subject: 'Math',
-      Score: score,
+      Score: Number(score), // แปลงเป็นตัวเลขก่อนส่ง
       Grade: grade
     };
-    console.log("Saving to DynamoDB...", payload);
-    alert(`Saved data for Student: ${studentId}\nGrade: ${grade}`);
+
+    console.log("Sending to Backend...", payload);
+
+    try {
+      // 🚀 ยิง Request ไปที่ AWS Lambda ผ่าน API Gateway
+      const response = await fetch(`${API_URL}/grades`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log("Success:", data);
+      alert(`✅ Success! Saved data for Student: ${studentId}`);
+
+    } catch (error) {
+      console.error("Save failed:", error);
+      alert(`❌ Failed to save: ${error.message}\n(Check Console for details)`);
+    } finally {
+      setIsSaving(false); // หยุดหมุนไม่ว่าจะสำเร็จหรือไม่
+    }
   };
 
   return (
     <div className="App">
       <div className="card">
-        <h1>Grade Calculator</h1>
+        <h1> คำนวณเกรด</h1>
+        
+      
+
         <div className="input-group">
           <input 
-            placeholder="Student ID" 
+            placeholder="ใส่รหัสนักศึกษา" 
             value={studentId} 
             onChange={(e) => setStudentId(e.target.value)} 
           />
           <input 
             type="number" 
-            placeholder="Enter Score (0-100)" 
+            placeholder="ใส่คะแนน (0-100)" 
             value={score} 
             onChange={(e) => setScore(e.target.value)} 
           />
-          <button onClick={handleCalculate}>Calculate Grade</button>
+          <button onClick={handleCalculate}>คำนวณ</button>
         </div>
         
         {grade && (
@@ -49,8 +88,13 @@ function App() {
             <h2>Grade: <span className={`grade-${grade}`}>{grade}</span></h2>
             
             {grade !== 'Invalid' && (
-              <button className="save-btn" onClick={handleSave}>
-                Save to Database
+              <button 
+                className="save-btn" 
+                onClick={handleSave}
+                disabled={isSaving} // ป้องกันการกดซ้ำ
+                style={{ backgroundColor: isSaving ? '#ccc' : '#4CAF50' }}
+              >
+                {isSaving ? 'Saving...' : 'Save to DynamoDB'}
               </button>
             )}
           </div>

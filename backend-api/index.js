@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(cors()); // เปิด CORS ให้ React เรียกได้
 
-const client = new DynamoDBClient({ region: "ap-southeast-1" });
+const client = new DynamoDBClient({ region: "ap-southeast-2" });
 const dynamo = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "StudentGrades"; // ชื่อ Table ที่สร้างใน Terraform
 
