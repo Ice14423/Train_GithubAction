@@ -36,7 +36,7 @@ resource "aws_dynamodb_table" "grades_db" {
 
 # --- 2. S3 Bucket (Web Hosting) ---
 resource "aws_s3_bucket" "react_bucket" {
-  bucket = "GradeCalculatorApp" # เปลี่ยนชื่อให้ไม่ซ้ำ!
+  bucket = "my-calculator-react-app-production" # เปลี่ยนชื่อให้ไม่ซ้ำ!
 }
 
 resource "aws_s3_bucket_website_configuration" "react_website" {
