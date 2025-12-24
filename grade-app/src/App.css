@@ -4,6 +4,8 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  /* เพิ่ม box-sizing เพื่อให้ padding ไม่ดันขนาดจนล้น */
+  box-sizing: border-box; 
 }
 
 .App {
@@ -11,15 +13,23 @@
   justify-content: center;
   align-items: center;
   min-height: 80vh;
+  /* เพิ่ม padding เล็กน้อยกันเนื้อหาชิดขอบจอมือถือเกินไป */
+  padding: 0 10px; 
 }
 
 .card {
-  background-color: #3734c7; /* พื้นหลังสีเข้ม */
+  background-color: #3734c7;
   padding: 2rem;
   border-radius: 15px;
   box-shadow: 0 4px 8px rgba(12, 33, 174, 0.2);
-  width: 400px;
+  
+  /* --- จุดที่แก้ไขเพื่อทำ Responsive --- */
+  width: 100%;       /* ปรับให้ยืดเต็มพื้นที่ที่มี */
+  max-width: 400px;  /* แต่ไม่ให้เกิน 400px (เพื่อให้สวยใน Desktop) */
+  /* ---------------------------------- */
+  
   color: white;
+  box-sizing: border-box; /* สำคัญ: รวม padding ไว้ในความกว้าง */
 }
 
 .input-group {
@@ -36,6 +46,8 @@ input, select {
   background-color: #1a1a1a;
   color: white;
   font-size: 16px;
+  width: 100%; /* ให้ input เต็มความกว้าง card เสมอ */
+  box-sizing: border-box;
 }
 
 button {
@@ -47,6 +59,7 @@ button {
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.25s;
+  width: 100%; /* ปรับปุ่มให้เต็มความกว้าง (ดูดีกว่าในมือถือ) หรือจะลบออกก็ได้ถ้าชอบปุ่มเล็ก */
 }
 
 button:hover {
@@ -59,9 +72,9 @@ button:hover {
   border-top: 1px solid #444;
 }
 
-.grade-A { color: #4caf50; } /* สีเขียว */
-.grade-F { color: #f44336; } /* สีแดง */
-.grade-Invalid { color: #ff9800; } /* สีส้ม */
+.grade-A { color: #4caf50; }
+.grade-F { color: #f44336; }
+.grade-Invalid { color: #ff9800; }
 
 .save-btn {
   background-color: #4caf50;
@@ -70,4 +83,21 @@ button:hover {
 
 .save-btn:hover {
   background-color: #45a049;
+}
+
+/* --- เพิ่ม Media Query สำหรับหน้าจอเล็ก (มือถือ) --- */
+@media (max-width: 600px) {
+  #root {
+    padding: 1rem; /* ลดช่องว่างขอบจอเมื่อดูในมือถือ */
+  }
+
+  .card {
+    padding: 1.5rem; /* ลด padding ในการ์ดลงนิดหน่อยเพื่อเพิ่มพื้นที่เนื้อหา */
+  }
+  
+  .App {
+    min-height: auto; /* ในมือถืออาจไม่ต้อง fix ความสูงขั้นต่ำ ปล่อยตามเนื้อหา */
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
 }
