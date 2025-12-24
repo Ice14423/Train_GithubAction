@@ -17,7 +17,9 @@ provider "aws" {
   region = "ap-southeast-2"
 }
 
-# --- 1. DynamoDB (Database เก็บเกรด) ---
+# ==========================================
+# PART 1: Database (DynamoDB)
+# ==========================================
 resource "aws_dynamodb_table" "grades_db" {
   name           = "StudentGrades"
   billing_mode   = "PAY_PER_REQUEST"
@@ -34,9 +36,12 @@ resource "aws_dynamodb_table" "grades_db" {
   }
 }
 
-# --- 2. S3 Bucket (Web Hosting) ---
+# ==========================================
+# PART 2: Frontend (S3 + CloudFront)
+# ==========================================
 resource "aws_s3_bucket" "react_bucket" {
-  bucket = "my-calculator-react-app-production" # เปลี่ยนชื่อให้ไม่ซ้ำ!
+  bucket = "my-calculator-react-app-production" # ชื่อเดิมของคุณ
+  # force_destroy = true # ถ้าอยากให้ลบถังได้แม้มีไฟล์อยู่ ให้เปิดบรรทัดนี้
 }
 
 resource "aws_s3_bucket_website_configuration" "react_website" {
@@ -45,7 +50,6 @@ resource "aws_s3_bucket_website_configuration" "react_website" {
   error_document { key = "index.html" }
 }
 
-# ปิด Public Access Block เพื่อให้ CloudFront เข้าถึงได้ (หรือตั้ง Policy)
 resource "aws_s3_bucket_public_access_block" "public_access" {
   bucket = aws_s3_bucket.react_bucket.id
   block_public_acls       = false
@@ -54,7 +58,6 @@ resource "aws_s3_bucket_public_access_block" "public_access" {
   restrict_public_buckets = false
 }
 
-# Policy ให้ CloudFront อ่านได้ (หรือ Public Read แบบง่าย)
 resource "aws_s3_bucket_policy" "public_read" {
   bucket = aws_s3_bucket.react_bucket.id
   policy = jsonencode({
@@ -72,7 +75,6 @@ resource "aws_s3_bucket_policy" "public_read" {
   depends_on = [aws_s3_bucket_public_access_block.public_access]
 }
 
-# --- 3. CloudFront (HTTPS) ---
 resource "aws_cloudfront_distribution" "s3_distribution" {
   origin {
     domain_name = aws_s3_bucket.react_bucket.bucket_regional_domain_name
@@ -93,14 +95,14 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
       cookies { forward = "none" }
     }
 
-    viewer_protocol_policy = "redirect-to-https" # บังคับ HTTPS
+    viewer_protocol_policy = "redirect-to-https"
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true # ใช้ HTTPS ฟรีของ AWS
+    cloudfront_default_certificate = true
   }
 
   restrictions {
@@ -110,7 +112,125 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   price_class = "PriceClass_200"
 }
 
-# --- Outputs ---
+# ==========================================
+# PART 3: Backend (Lambda + IAM) - เพิ่มใหม่
+# ==========================================
+
+# 3.1 สร้าง Role ให้ Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "serverless_lambda_grade_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+# 3.2 อนุญาตให้ Lambda ยุ่งกับ DynamoDB และเขียน Logs
+resource "aws_iam_role_policy" "lambda_policy" {
+  name = "lambda_dynamo_policy"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Scan",
+          "dynamodb:Query",
+          "dynamodb:UpdateItem"
+        ],
+        Resource = aws_dynamodb_table.grades_db.arn
+      },
+      {
+        Effect = "Allow",
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# 3.3 สร้าง Lambda Function
+# ข้อควรระวัง: ต้องมีไฟล์ backend.zip อยู่ในโฟลเดอร์เดียวกับ main.tf ก่อนรัน
+# (ซึ่ง Jenkins Pipeline จะเป็นคนสร้างและย้ายมาวางให้)
+resource "aws_lambda_function" "backend" {
+  filename      = "backend.zip"
+  function_name = "grade-api-function"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "index.handler"
+  runtime       = "nodejs20.x"
+  source_code_hash = fileexists("backend.zip") ? filebase64sha256("backend.zip") : null
+
+  environment {
+    variables = {
+      TABLE_NAME = aws_dynamodb_table.grades_db.name
+    }
+  }
+}
+
+# ==========================================
+# PART 4: API Gateway (HTTP API) - เพิ่มใหม่
+# ==========================================
+
+# 4.1 สร้าง API Gateway
+resource "aws_apigatewayv2_api" "lambda_api" {
+  name          = "grade-http-api"
+  protocol_type = "HTTP"
+  
+  # ตั้งค่า CORS ให้ React เรียกใช้งานได้
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["POST", "GET", "OPTIONS"]
+    allow_headers = ["content-type"]
+  }
+}
+
+# 4.2 สร้าง Stage (Environment)
+resource "aws_apigatewayv2_stage" "lambda_stage" {
+  api_id = aws_apigatewayv2_api.lambda_api.id
+  name   = "$default"
+  auto_deploy = true
+}
+
+# 4.3 เชื่อม API Gateway เข้ากับ Lambda
+resource "aws_apigatewayv2_integration" "lambda_integration" {
+  api_id           = aws_apigatewayv2_api.lambda_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.backend.invoke_arn
+  payload_format_version = "2.0"
+}
+
+# 4.4 สร้าง Route (เส้นทาง URL) - รับทุก Request
+resource "aws_apigatewayv2_route" "any_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "ANY /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+# 4.5 อนุญาตให้ API Gateway เรียก Lambda ได้
+resource "aws_lambda_permission" "api_gw" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.backend.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.lambda_api.execution_arn}/*/*"
+}
+
+# ==========================================
+# Outputs
+# ==========================================
 output "s3_bucket_name" {
   value = aws_s3_bucket.react_bucket.id
 }
@@ -121,4 +241,9 @@ output "cloudfront_distribution_id" {
 
 output "website_https_url" {
   value = aws_cloudfront_distribution.s3_distribution.domain_name
+}
+
+# Output ใหม่: URL ของ API สำหรับเอาไปใส่ใน React
+output "api_endpoint" {
+  value = aws_apigatewayv2_api.lambda_api.api_endpoint
 }
