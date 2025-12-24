@@ -3,7 +3,7 @@ pipeline {
 
     tools {
         // ต้องไปตั้งชื่อใน Global Tool Config ให้ตรงกัน
-        nodejs 'NodeJS 20' 
+        
         terraform 'Terraform'
     }
 
