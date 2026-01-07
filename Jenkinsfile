@@ -4,7 +4,7 @@ pipeline {
     tools {
         // ใช้ Node และ Terraform ที่ตั้งค่าไว้ใน Jenkins Global Tool Configuration
         terraform 'Terraform'
-        nodejs 'NodeJS' // (แนะนำ) ควรระบุชื่อ NodeJS ที่ตั้งไว้ใน Jenkins ด้วย ถ้ามี
+        // (แนะนำ) ควรระบุชื่อ NodeJS ที่ตั้งไว้ใน Jenkins ด้วย ถ้ามี
     }
 
     environment {
