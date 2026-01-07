@@ -4,25 +4,32 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    # [NEW] เพิ่ม Grafana Provider
+    # เพิ่ม Provider ของ Grafana
     grafana = {
       source  = "grafana/grafana"
       version = "~> 3.0"
     }
   }
-  # Note: ต้องสร้าง Bucket ชื่อนี้ด้วยมือก่อนเพื่อเก็บ State
+
+  # Backend เดิมของคุณ
   backend "s3" {
-    bucket = "my-calculator-tf-state-store" 
+    bucket = "my-calculator-tf-state-store"
     key    = "react-app/terraform.tfstate"
     region = "ap-southeast-2"
   }
 }
 
+# ==========================================
+# PART 0: Providers & Variables
+# ==========================================
 provider "aws" {
   region = "ap-southeast-2"
 }
 
-# [NEW] ตั้งค่า Provider Grafana
+# รับค่า URL และ Auth ของ Grafana (ต้องใส่ใน Jenkins Credentials หรือ terraform.tfvars)
+variable "grafana_url" { type = string }
+variable "grafana_auth" { type = string }
+
 provider "grafana" {
   url  = var.grafana_url
   auth = var.grafana_auth
@@ -32,9 +39,9 @@ provider "grafana" {
 # PART 1: Database (DynamoDB)
 # ==========================================
 resource "aws_dynamodb_table" "grades_db" {
-  name           = "StudentGrades"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "StudentID"
+  name         = "StudentGrades"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "StudentID"
   
   attribute {
     name = "StudentID"
@@ -51,8 +58,7 @@ resource "aws_dynamodb_table" "grades_db" {
 # PART 2: Frontend (S3 + CloudFront)
 # ==========================================
 resource "aws_s3_bucket" "react_bucket" {
-  bucket = "my-calculator-react-app-production" # ชื่อเดิมของคุณ
-  # force_destroy = true # ถ้าอยากให้ลบถังได้แม้มีไฟล์อยู่ ให้เปิดบรรทัดนี้
+  bucket = "my-calculator-react-app-production"
 }
 
 resource "aws_s3_bucket_website_configuration" "react_website" {
@@ -126,11 +132,8 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
 # ==========================================
 # PART 3: Backend (Lambda + IAM)
 # ==========================================
-
-# 3.1 สร้าง Role ให้ Lambda
 resource "aws_iam_role" "lambda_role" {
   name = "serverless_lambda_grade_role"
-
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -141,45 +144,35 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
-# 3.2 อนุญาตให้ Lambda ยุ่งกับ DynamoDB และเขียน Logs
 resource "aws_iam_role_policy" "lambda_policy" {
   name = "lambda_dynamo_policy"
   role = aws_iam_role.lambda_role.id
-
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Effect = "Allow",
         Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Scan",
-          "dynamodb:Query",
-          "dynamodb:UpdateItem"
+          "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Scan",
+          "dynamodb:Query", "dynamodb:UpdateItem"
         ],
         Resource = aws_dynamodb_table.grades_db.arn
       },
       {
         Effect = "Allow",
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents"
-        ],
+        Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
         Resource = "*"
       }
     ]
   })
 }
 
-# 3.3 สร้าง Lambda Function
 resource "aws_lambda_function" "backend" {
-  filename      = "backend.zip"
-  function_name = "grade-api-function"
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "index.handler"
-  runtime       = "nodejs20.x"
+  filename         = "backend.zip"
+  function_name    = "grade-api-function"
+  role             = aws_iam_role.lambda_role.arn
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
   source_code_hash = fileexists("backend.zip") ? filebase64sha256("backend.zip") : null
 
   environment {
@@ -190,14 +183,11 @@ resource "aws_lambda_function" "backend" {
 }
 
 # ==========================================
-# PART 4: API Gateway (HTTP API)
+# PART 4: API Gateway
 # ==========================================
-
-# 4.1 สร้าง API Gateway
 resource "aws_apigatewayv2_api" "lambda_api" {
   name          = "grade-http-api"
   protocol_type = "HTTP"
-  
   cors_configuration {
     allow_origins = ["*"]
     allow_methods = ["POST", "GET", "OPTIONS"]
@@ -205,14 +195,12 @@ resource "aws_apigatewayv2_api" "lambda_api" {
   }
 }
 
-# 4.2 สร้าง Stage
 resource "aws_apigatewayv2_stage" "lambda_stage" {
-  api_id = aws_apigatewayv2_api.lambda_api.id
-  name   = "$default"
+  api_id      = aws_apigatewayv2_api.lambda_api.id
+  name        = "$default"
   auto_deploy = true
 }
 
-# 4.3 เชื่อม API Gateway เข้ากับ Lambda
 resource "aws_apigatewayv2_integration" "lambda_integration" {
   api_id           = aws_apigatewayv2_api.lambda_api.id
   integration_type = "AWS_PROXY"
@@ -220,14 +208,12 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   payload_format_version = "2.0"
 }
 
-# 4.4 สร้าง Route
 resource "aws_apigatewayv2_route" "any_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
   route_key = "ANY /{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-# 4.5 อนุญาตให้ API Gateway เรียก Lambda ได้
 resource "aws_lambda_permission" "api_gw" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
@@ -237,12 +223,12 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 # ==========================================
-# PART 5: Monitoring (Grafana + AWS IAM) - [NEW]
+# PART 5: Grafana Monitoring (เพิ่มใหม่)
 # ==========================================
 
-# 5.1 สร้าง IAM User สำหรับ Grafana
+# 5.1 สร้าง User ให้ Grafana มาอ่าน CloudWatch
 resource "aws_iam_user" "grafana" {
-  name = "grafana-cloudwatch-reader"
+  name = "grafana-cloudwatch-reader-tf"
 }
 
 resource "aws_iam_access_key" "grafana" {
@@ -254,13 +240,13 @@ resource "aws_iam_user_policy_attachment" "grafana_ro" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 
-# 5.2 เชื่อม Grafana Data Source
+# 5.2 เชื่อมต่อ Grafana กับ AWS CloudWatch
 resource "grafana_data_source" "cloudwatch" {
   type = "cloudwatch"
   name = "AWS-CloudWatch-TF"
   
   json_data_encoded = jsonencode({
-    defaultRegion = "ap-southeast-2" # ต้องตรงกับ Region AWS ของคุณ
+    defaultRegion = "ap-southeast-2"
     authType      = "keys"
   })
 
@@ -270,36 +256,25 @@ resource "grafana_data_source" "cloudwatch" {
   })
 }
 
-# 5.3 สร้าง Dashboard
+# 5.3 สร้าง Dashboard (แก้ไข Region ให้ถูกต้องแล้ว)
 resource "grafana_dashboard" "grade_app_monitor" {
   config_json = jsonencode({
     "title": "Grade App Monitor (Terraform)",
     "panels": [
       {
         "type": "timeseries",
-        "title": "Lambda Performance",
-        "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+        "title": "Lambda Invocations (Real-time)",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
         "targets": [
           {
             "datasource": { "type": "cloudwatch", "uid": grafana_data_source.cloudwatch.uid },
             "namespace": "AWS/Lambda",
             "metricName": "Invocations",
             "dimensions": { "FunctionName": aws_lambda_function.backend.function_name },
-            "region": "ap-southeast-2",
+            # ✅ จุดสำคัญที่แก้ให้แล้ว: บังคับ Region ให้ตรงกับ Lambda
+            "region": "ap-southeast-2", 
             "stat": "Sum",
-            "refId": "A",
-            "label": "Requests"
-          },
-          {
-            "datasource": { "type": "cloudwatch", "uid": grafana_data_source.cloudwatch.uid },
-            "namespace": "AWS/Lambda",
-            "metricName": "Errors",
-            "dimensions": { "FunctionName": aws_lambda_function.backend.function_name },
-            "region": "ap-southeast-2",
-            "stat": "Sum",
-            "refId": "B",
-            "color": { "fixedColor": "red", "mode": "fixed" },
-            "label": "Errors"
+            "refId": "A"
           }
         ]
       }
@@ -308,32 +283,9 @@ resource "grafana_dashboard" "grade_app_monitor" {
 }
 
 # ==========================================
-# Variables & Outputs
+# Outputs
 # ==========================================
-
-variable "grafana_url" {
-  type        = string
-  description = "Grafana URL e.g. https://my-stack.grafana.net"
-}
-
-variable "grafana_auth" {
-  type        = string
-  sensitive   = true
-  description = "Grafana Service Account Token"
-}
-
-output "s3_bucket_name" {
-  value = aws_s3_bucket.react_bucket.id
-}
-
-output "cloudfront_distribution_id" {
-  value = aws_cloudfront_distribution.s3_distribution.id
-}
-
-output "website_https_url" {
-  value = aws_cloudfront_distribution.s3_distribution.domain_name
-}
-
-output "api_endpoint" {
-  value = aws_apigatewayv2_api.lambda_api.api_endpoint
-}
+output "s3_bucket_name" { value = aws_s3_bucket.react_bucket.id }
+output "cloudfront_distribution_id" { value = aws_cloudfront_distribution.s3_distribution.id }
+output "website_https_url" { value = aws_cloudfront_distribution.s3_distribution.domain_name }
+output "api_endpoint" { value = aws_apigatewayv2_api.lambda_api.api_endpoint }
