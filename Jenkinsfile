@@ -14,13 +14,12 @@ pipeline {
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
         
         // --- Grafana Config ---
-        // 1. ดึง Token จาก Credentials
         GRAFANA_AUTH          = credentials('grafana-api-token') 
-        // 2. URL ของ Grafana
         GRAFANA_URL           = 'https://ice14423.grafana.net' 
         
         TF_IN_AUTOMATION      = 'true'
-        PATH = "${WORKSPACE}/bin:${env.PATH}"
+        // เพิ่ม Path ของ bin (ที่เราจะลง trivy) เข้าไปใน PATH ระบบ
+        PATH                  = "${WORKSPACE}/bin:${env.PATH}"
     }
 
     stages {
@@ -61,6 +60,10 @@ pipeline {
         // =========================================================
         stage('🛡️ Security Checks') {
             steps {
+                // [สำคัญ] ลบไฟล์ Plan เก่าทิ้งก่อน เพื่อไม่ให้ Trivy ไปสแกนเจอ Snapshot เก่า
+                echo '🧹 Cleaning old Terraform plans...'
+                sh 'rm -f terraform/tfplan terraform/tfplan.json'
+
                 // 1. ตรวจหา Secret
                 echo '🔒 [1/3] Scanning for Secrets...'
                 sh 'gitleaks detect --source . -v'
@@ -71,7 +74,8 @@ pipeline {
 
                 // 3. ตรวจ Terraform (IaC)
                 echo '☁️ [3/3] Scanning Terraform...'
-                // หมายเหตุ: รอบนี้จะผ่าน เพราะเราแก้ main.tf แล้ว
+                // คำสั่งนี้จะอ่าน main.tf ที่เราแก้แล้ว (ที่มี #trivy:ignore)
+                // จะไม่ Fail เพราะเราใส่ ignore ไว้ใน code แล้ว
                 sh 'trivy config ./terraform --severity HIGH,CRITICAL --exit-code 1'
             }
         }
@@ -111,19 +115,20 @@ pipeline {
                 dir('terraform') {
                     echo '🏗️ Provisioning AWS Resources & Monitoring...'
                     
-                    // [UPDATED] เพิ่ม -upgrade เพื่อรองรับ provider ใหม่ (alias)
+                    // [UPDATED] ใช้ -upgrade เผื่อมีการเปลี่ยน provider version
                     sh 'terraform init -upgrade'
                     
-                    // ส่งค่าตัวแปร Grafana เข้าไปตอน Plan
+                    // สร้าง Plan ใหม่
                     sh """
                         terraform plan -out=tfplan \
                         -var="grafana_url=${GRAFANA_URL}" \
                         -var="grafana_auth=${GRAFANA_AUTH}"
                     """
                     
+                    // Apply จากไฟล์ Plan ที่เพิ่งสร้าง
                     sh 'terraform apply -auto-approve tfplan'
                     
-                    // ดึง Output ค่าต่างๆ ออกมาใช้งาน
+                    // ดึง Output
                     script {
                         env.BUCKET_NAME   = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
                         env.CLOUDFRONT_ID = sh(script: "terraform output -raw cloudfront_distribution_id", returnStdout: true).trim()
@@ -155,6 +160,10 @@ pipeline {
         }
         failure { 
             echo "❌ Pipeline Failed" 
+        }
+        cleanup {
+            // ลบไฟล์ Plan ทิ้งหลังจบงานเพื่อความปลอดภัย
+            sh 'rm -f terraform/tfplan terraform/backend.zip'
         }
     }
 }
