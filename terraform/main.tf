@@ -253,9 +253,19 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
   payload_format_version = "2.0"
 }
 
+# 1. Route นี้ดัก OPTIONS ไว้ เพื่อให้ API Gateway ตอบกลับเอง (ไม่เสียเงิน Lambda)
+resource "aws_apigatewayv2_route" "options_route" {
+  api_id    = aws_apigatewayv2_api.lambda_api.id
+  route_key = "OPTIONS /{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}" 
+  # หมายเหตุ: จริงๆ ตรงนี้ไม่ต้องส่งเข้า Lambda ก็ได้ถ้า config CORS ใน API Gateway แล้ว
+  # แต่ถ้าจะให้ชัวร์คือ Route นี้ต้อง "ไม่ไป Trigger Lambda"
+}
+
+# 2. Route นี้สำหรับ Logic ที่เหลือ (GET, POST, etc.)
 resource "aws_apigatewayv2_route" "any_route" {
   api_id    = aws_apigatewayv2_api.lambda_api.id
-  route_key = "ANY /{proxy+}"
+  route_key = "ANY /{proxy+}" 
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
