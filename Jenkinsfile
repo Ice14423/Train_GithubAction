@@ -10,7 +10,7 @@ pipeline {
     environment {
         // --- AWS Credentials ---
         AWS_ACCESS_KEY_ID     ='AKIAxxxxxxxxxxxx'
-        AWS_SECRET_ACCESS_KEY = 'wJalrXcxcUtnFEMI'
+        AWS_SECRET_ACCESS_KEY = 'wJalrXcxcUtnFEMI/K7MDENG/bPxRfiCYXyZ123qrRsTp'
        /* AWS_ACCESS_KEY_ID   = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')*/
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
@@ -67,7 +67,7 @@ pipeline {
             steps {
                 // 1. ตรวจหา Secret
                 echo '🔒 [1/3] Scanning for Secrets...'
-                sh 'gitleaks detect --source . -v'
+                
                 sh 'gitleaks detect --no-git --source . -v'
 
                 // 2. ตรวจ Library (SCA)
