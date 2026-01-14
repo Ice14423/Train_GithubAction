@@ -360,7 +360,7 @@ resource "grafana_data_source" "cloudwatch" {
     secretKey = aws_iam_access_key.grafana.secret
   })
 }
-
+//dashboard for monitoring lambda invocationsSFSFD
 resource "grafana_dashboard" "grade_app_monitor" {
   config_json = jsonencode({
     "title": "Grade App Monitor (Terraform)",
