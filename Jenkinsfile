@@ -2,23 +2,21 @@ pipeline {
     agent any
 
     tools {
-        // ใช้ Node และ Terraform ที่ตั้งค่าไว้ใน Jenkins Global Tool Configuration
+        // ต้องมั่นใจว่าตั้งชื่อ 'Terraform' ใน Jenkins Global Tool Configuration ตรงกัน
         terraform 'Terraform'
-        // (แนะนำ) ควรระบุชื่อ NodeJS ที่ตั้งไว้ใน Jenkins ด้วย ถ้ามี
+        // nodejs 'NodeJS' // (แนะนำ) ถ้าใน Jenkins มีการตั้งค่า Node ไว้ควรเปิดใช้
     }
 
     environment {
-        // --- AWS Credentials ---
-        AWS_ACCESS_KEY_ID     ='AKIAxxxxxxxxxxxx'
-        AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-       /* AWS_ACCESS_KEY_ID   = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')*/
+        // --- AWS Credentials (ดึงจาก Jenkins Credentials เท่านั้น!) ---
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
         
-        // --- Grafana Config (เพิ่มใหม่) ---
-        // 1. ดึง Token จาก Credentials ที่เราเพิ่งสร้าง
+        // --- Grafana Config ---
+        // 1. ดึง Token จาก Credentials
         GRAFANA_AUTH          = credentials('grafana-api-token') 
-        // 2. ใส่ URL ของคุณตรงนี้ (แก้เป็น URL ของคุณเอง!)
+        // 2. URL ของ Grafana
         GRAFANA_URL           = 'https://ice14423.grafana.net' 
         
         TF_IN_AUTOMATION      = 'true'
@@ -35,21 +33,19 @@ pipeline {
              }
         }
 
-
         // =========================================================
-        // 🛡️ PART 1: ติดตั้งเครื่องมือ Security (แทรกตรงนี้)
+        // 🛡️ PART 1: ติดตั้งเครื่องมือ Security
         // =========================================================
         stage('🛠️ Setup Security Tools') {
             steps {
                 script {
-                    sh 'mkdir -p bin' // สร้างโฟลเดอร์ชั่วคราว
+                    sh 'mkdir -p bin'
                     dir('bin') {
                         echo '⬇️ Installing Security Scanners...'
-                        
                         // 1. Install Trivy
                         sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .'
                         
-                        // 2. Install Gitleaks (Linux amd64)
+                        // 2. Install Gitleaks
                         sh 'curl -L -o gitleaks.tar.gz https://github.com/zricethezav/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz'
                         sh 'tar -xzf gitleaks.tar.gz gitleaks'
                         sh 'rm gitleaks.tar.gz'
@@ -61,7 +57,7 @@ pipeline {
         }
 
         // =========================================================
-        // 🛡️ PART 2: ตรวจสอบความปลอดภัย (แทรกตรงนี้)
+        // 🛡️ PART 2: ตรวจสอบความปลอดภัย
         // =========================================================
         stage('🛡️ Security Checks') {
             steps {
@@ -75,6 +71,7 @@ pipeline {
 
                 // 3. ตรวจ Terraform (IaC)
                 echo '☁️ [3/3] Scanning Terraform...'
+                // หมายเหตุ: รอบนี้จะผ่าน เพราะเราแก้ main.tf แล้ว
                 sh 'trivy config ./terraform --severity HIGH,CRITICAL --exit-code 1'
             }
         }
@@ -100,10 +97,9 @@ pipeline {
                     sh 'npm install'
                     
                     echo '🗜️ Backend: Zipping for Lambda...'
-                    // Zip ไฟล์ทั้งหมด (อย่าลืมจุด . ข้างหลัง)
                     sh 'zip -r backend.zip .'
                     
-                    // ย้ายไฟล์ zip ไปไว้ในโฟลเดอร์ terraform
+                    // ย้ายไฟล์ zip ไปไว้ในโฟลเดอร์ terraform เพื่อให้ Terraform หาเจอ
                     sh 'mv backend.zip ../terraform/'
                 }
             }
@@ -115,16 +111,16 @@ pipeline {
                 dir('terraform') {
                     echo '🏗️ Provisioning AWS Resources & Monitoring...'
                     
-                    sh 'terraform init'
+                    // [UPDATED] เพิ่ม -upgrade เพื่อรองรับ provider ใหม่ (alias)
+                    sh 'terraform init -upgrade'
                     
-                    // [UPDATED] ส่งค่าตัวแปร Grafana เข้าไปตอน Plan
+                    // ส่งค่าตัวแปร Grafana เข้าไปตอน Plan
                     sh """
                         terraform plan -out=tfplan \
                         -var="grafana_url=${GRAFANA_URL}" \
                         -var="grafana_auth=${GRAFANA_AUTH}"
                     """
                     
-                    // ตอน Apply ไม่ต้องส่งตัวแปรซ้ำ เพราะมันถูกฝังอยู่ใน tfplan แล้ว
                     sh 'terraform apply -auto-approve tfplan'
                     
                     // ดึง Output ค่าต่างๆ ออกมาใช้งาน
@@ -141,9 +137,6 @@ pipeline {
         // --- Deploy Frontend ---
         stage('Deploy Frontend to AWS') {
             steps {
-                // (Optional) ในอนาคตถ้าจะแก้ Frontend ให้ยิง API ได้จริง 
-                // เราอาจจะต้อง Replace URL ในไฟล์ JS ก่อน Sync แต่วันนี้เอาแค่นี้ก่อน
-                
                 echo "🚀 Deploying to S3 Bucket: ${env.BUCKET_NAME}"
                 sh "aws s3 sync ./grade-app/dist s3://${env.BUCKET_NAME} --delete"
                 
