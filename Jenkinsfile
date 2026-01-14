@@ -7,8 +7,10 @@ pipeline {
 
     environment {
         // --- AWS Credentials (ใช้แบบปลอดภัย ดึงจาก Jenkins) ---
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+       AWS_ACCESS_KEY_ID     = 'AKIAIMW6QF4U755UK27D' 
+
+    // 2. Secret Key ต้องยาว 40 ตัวอักษร
+        AWS_SECRET_ACCESS_KEY = '7xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa'
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
         
         // --- Grafana Config ---
