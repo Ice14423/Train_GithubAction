@@ -9,8 +9,10 @@ pipeline {
 
     environment {
         // --- AWS Credentials ---
-        AWS_ACCESS_KEY_ID     ='AKIAxxxxxxxxxxxx'
-        AWS_SECRET_ACCESS_KEY = 'wJalrXcxcUtnFEMI/K7MDENG/bPxRfiCYXyZ123qrRsTp'
+        AWS_ACCESS_KEY_ID     = 'AKIAIMW6QF4U755UK27D' 
+
+    // 2. Secret Key ต้องยาว 40 ตัวอักษร
+        AWS_SECRET_ACCESS_KEY = '7xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa3xRa'
        /* AWS_ACCESS_KEY_ID   = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')*/
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
