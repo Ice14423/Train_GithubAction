@@ -68,6 +68,7 @@ pipeline {
                 // 1. ตรวจหา Secret
                 echo '🔒 [1/3] Scanning for Secrets...'
                 sh 'gitleaks detect --source . -v'
+                sh 'gitleaks detect --no-git --source . -v'
 
                 // 2. ตรวจ Library (SCA)
                 echo '📦 [2/3] Scanning Dependencies...'
