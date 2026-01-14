@@ -58,25 +58,42 @@ pipeline {
         // =========================================================
         // 🛡️ PART 2: ตรวจสอบความปลอดภัย
         // =========================================================
-        stage('🛡️ Security Checks') {
+       stage('🛡️ Security Checks') {
             steps {
-                // [สำคัญ] ลบไฟล์ Plan เก่าทิ้งก่อน เพื่อไม่ให้ Trivy ไปสแกนเจอ Snapshot เก่า
-                echo '🧹 Cleaning old Terraform plans...'
-                sh 'rm -f terraform/tfplan terraform/tfplan.json'
+                script {
+                    // ลบ Plan เก่าทิ้งก่อน
+                    sh 'rm -f terraform/tfplan terraform/tfplan.json'
+                    
+                    echo '============================================'
+                    echo '🔍 STARTING SECURITY AUDIT (ALL CHECKS)'
+                    echo '============================================'
 
-                // 1. ตรวจหา Secret
-                echo '🔒 [1/3] Scanning for Secrets...'
-                sh 'gitleaks detect --source . -v'
+                    // 1. ตรวจหา Secret (Gitleaks)
+                    // returnStatus: true จะทำให้ไม่ Fail ทันที แต่เก็บผลลัพธ์ (0=ผ่าน, 1=ไม่ผ่าน) ไว้ในตัวแปร
+                    echo '🔒 [1/3] Scanning for Secrets (Gitleaks)...'
+                    def statusGitleaks = sh(script: 'gitleaks detect --no-git --source . -v', returnStatus: true)
 
-                // 2. ตรวจ Library (SCA)
-                echo '📦 [2/3] Scanning Dependencies...'
-                sh 'trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .'
+                    // 2. ตรวจ Library (Trivy FS)
+                    echo '📦 [2/3] Scanning Dependencies (Trivy FS)...'
+                    def statusTrivyFS = sh(script: 'trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .', returnStatus: true)
 
-                // 3. ตรวจ Terraform (IaC)
-                echo '☁️ [3/3] Scanning Terraform...'
-                // คำสั่งนี้จะอ่าน main.tf ที่เราแก้แล้ว (ที่มี #trivy:ignore)
-                // จะไม่ Fail เพราะเราใส่ ignore ไว้ใน code แล้ว
-                sh 'trivy config ./terraform --severity HIGH,CRITICAL --exit-code 1'
+                    // 3. ตรวจ Terraform (Trivy Config)
+                    echo '☁️ [3/3] Scanning Terraform (Trivy IaC)...'
+                    def statusTrivyIaC = sh(script: 'trivy config ./terraform --severity HIGH,CRITICAL --exit-code 1', returnStatus: true)
+
+                    // --- สรุปผล ---
+                    echo '============================================'
+                    echo "📊 SECURITY REPORT SUMMARY"
+                    echo "   - Gitleaks (Secrets): ${statusGitleaks == 0 ? '✅ PASS' : '❌ FAIL'}"
+                    echo "   - Trivy FS (Deps)   : ${statusTrivyFS == 0 ? '✅ PASS' : '❌ FAIL'}"
+                    echo "   - Trivy IaC (Terraform): ${statusTrivyIaC == 0 ? '✅ PASS' : '❌ FAIL'}"
+                    echo '============================================'
+
+                    // ถ้ามีอันใดอันหนึ่งไม่ผ่าน (ค่าไม่เท่ากับ 0) ให้สั่ง Error ตรงนี้
+                    if (statusGitleaks != 0 || statusTrivyFS != 0 || statusTrivyIaC != 0) {
+                        error("⛔ Security Check Failed! Please fix the vulnerabilities listed above.")
+                    }
+                }
             }
         }
         
