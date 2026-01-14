@@ -79,7 +79,7 @@ pipeline {
             }
         }
         
-
+//test
         // --- ส่วน Frontend ---
         stage('Frontend: Install & Build') {
             steps {
