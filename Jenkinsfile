@@ -110,29 +110,29 @@ pipeline {
         }
 
         // --- Infrastructure (IaC) ---
-        stage('Infrastructure (IaC)') {
-                    steps {
-                        dir('terraform') {
-                            echo '🏗️ Provisioning AWS Resources & Monitoring...'
-                            
-                            sh 'terraform init -upgrade'
-                            
-                            // [FIX 2] ลบ -var ออก เพราะใช้ TF_VAR_ ด้านบนแล้ว
-                            // และใช้ Single Quotes (') เพื่อป้องกัน Groovy Interpolation
-                            sh 'terraform plan -out=tfplan'
-                            
-                            sh 'terraform apply -auto-approve tfplan'
-                            
-                            script {
-                                env.BUCKET_NAME   = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
-                                env.CLOUDFRONT_ID = sh(script: "terraform output -raw cloudfront_distribution_id", returnStdout: true).trim()
-                                env.WEB_URL       = sh(script: "terraform output -raw website_https_url", returnStdout: true).trim()
-                                env.API_URL       = sh(script: "terraform output -raw api_endpoint", returnStdout: true).trim()
-                            }
-                        }
+ stage('Infrastructure (IaC)') {
+            steps {
+                dir('terraform') {
+                    echo '🏗️ Provisioning AWS Resources & Monitoring...'
+                    
+                    sh 'terraform init -upgrade'
+                    
+                    // [แก้จุดที่ 2] ใช้ -var แต่เขียนแบบ Single Quote (')
+                    // การใช้ '...' จะบอก Jenkins ว่า "ห้ามยุ่งกับข้อความข้างใน"
+                    // แล้วให้ $GRAFANA_URL ถูกแปลงค่าโดย Linux Shell แทน (ปลอดภัยและชัวร์)
+                    sh 'terraform plan -out=tfplan -var="grafana_url=$GRAFANA_URL" -var="grafana_auth=$GRAFANA_AUTH"'
+                    
+                    sh 'terraform apply -auto-approve tfplan'
+                    
+                    script {
+                        env.BUCKET_NAME   = sh(script: "terraform output -raw s3_bucket_name", returnStdout: true).trim()
+                        env.CLOUDFRONT_ID = sh(script: "terraform output -raw cloudfront_distribution_id", returnStdout: true).trim()
+                        env.WEB_URL       = sh(script: "terraform output -raw website_https_url", returnStdout: true).trim()
+                        env.API_URL       = sh(script: "terraform output -raw api_endpoint", returnStdout: true).trim()
                     }
                 }
-
+            }
+        }
         // --- Deploy Frontend ---
         stage('Deploy Frontend to AWS') {
             steps {
