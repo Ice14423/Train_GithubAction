@@ -9,8 +9,10 @@ pipeline {
 
     environment {
         // --- AWS Credentials ---
-        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        AWS_ACCESS_KEY_ID     ='AKIAxxxxxxxxxxxx'
+        AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+       /* AWS_ACCESS_KEY_ID   = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')*/
         AWS_DEFAULT_REGION    = 'ap-southeast-2'
         
         // --- Grafana Config (เพิ่มใหม่) ---
@@ -20,6 +22,7 @@ pipeline {
         GRAFANA_URL           = 'https://ice14423.grafana.net' 
         
         TF_IN_AUTOMATION      = 'true'
+        PATH = "${WORKSPACE}/bin:${env.PATH}"
     }
 
     stages {
@@ -31,6 +34,51 @@ pipeline {
                  sh 'zip -v' 
              }
         }
+
+
+        // =========================================================
+        // 🛡️ PART 1: ติดตั้งเครื่องมือ Security (แทรกตรงนี้)
+        // =========================================================
+        stage('🛠️ Setup Security Tools') {
+            steps {
+                script {
+                    sh 'mkdir -p bin' // สร้างโฟลเดอร์ชั่วคราว
+                    dir('bin') {
+                        echo '⬇️ Installing Security Scanners...'
+                        
+                        // 1. Install Trivy
+                        sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b .'
+                        
+                        // 2. Install Gitleaks (Linux amd64)
+                        sh 'curl -L -o gitleaks.tar.gz https://github.com/zricethezav/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_x64.tar.gz'
+                        sh 'tar -xzf gitleaks.tar.gz gitleaks'
+                        sh 'rm gitleaks.tar.gz'
+                        
+                        sh 'chmod +x trivy gitleaks'
+                    }
+                }
+            }
+        }
+
+        // =========================================================
+        // 🛡️ PART 2: ตรวจสอบความปลอดภัย (แทรกตรงนี้)
+        // =========================================================
+        stage('🛡️ Security Checks') {
+            steps {
+                // 1. ตรวจหา Secret
+                echo '🔒 [1/3] Scanning for Secrets...'
+                sh 'gitleaks detect --source . -v'
+
+                // 2. ตรวจ Library (SCA)
+                echo '📦 [2/3] Scanning Dependencies...'
+                sh 'trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .'
+
+                // 3. ตรวจ Terraform (IaC)
+                echo '☁️ [3/3] Scanning Terraform...'
+                sh 'trivy config ./terraform --severity HIGH,CRITICAL --exit-code 1'
+            }
+        }
+        
 
         // --- ส่วน Frontend ---
         stage('Frontend: Install & Build') {
