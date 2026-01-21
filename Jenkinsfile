@@ -104,6 +104,8 @@ pipeline {
                 dir('grade-app') {
                     echo '📦 Frontend: Installing...'
                     sh 'npm ci'
+                    echo '📦 Frontend: Testing...'
+                    sh 'npm run test'
                     echo '🔨 Frontend: Building...'
                     sh 'npm run build' 
                 }
