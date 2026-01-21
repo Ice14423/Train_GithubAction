@@ -152,7 +152,7 @@ pipeline {
                 }
             }
         }
-        // --- Deploy Frontend ---
+        // --- Deploy Frontend ---กหๆก
         stage('Deploy Frontend to AWS') {
             steps {
                 echo "🚀 Deploying to S3 Bucket: ${env.BUCKET_NAME}"
